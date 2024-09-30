@@ -1,56 +1,38 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cors = require('cors');
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
 
 const app = express();
-const port = 5000;
-
-app.use(bodyParser.json());
 app.use(cors());
+app.use(bodyParser.json());
 
-// MongoDB connection
-mongoose.connect('mongodb://localhost:27017/car_rental', { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log('MongoDB connected'))
-    .catch(err => console.log(err));
+let cars = [
+  { id: 1, name: "Toyota Camry", pricePerDay: 50, available: true },
+  { id: 2, name: "Honda Accord", pricePerDay: 45, available: true },
+  { id: 3, name: "Tesla Model 3", pricePerDay: 100, available: true },
+];
 
-// Car Schema
-const carSchema = new mongoose.Schema({
-    name: String,
-    model: String,
-    year: Number,
-    available: Boolean,
+// API to get list of cars
+app.get("/api/cars", (req, res) => {
+  res.json(cars);
 });
 
-const Car = mongoose.model('Car', carSchema);
-
-// Booking Schema
-const bookingSchema = new mongoose.Schema({
-    carId: mongoose.Schema.Types.ObjectId,
-    userId: String,
-    startDate: Date,
-    endDate: Date,
+// API to create a booking
+app.post("/api/bookings", (req, res) => {
+  const { carId, name, days } = req.body;
+  const car = cars.find((c) => c.id === carId);
+  
+  if (car && car.available) {
+    car.available = false; // Mark the car as unavailable after booking
+    res.json({
+      success: true,
+      message: `Booking confirmed for ${car.name} by ${name} for ${days} days`,
+      totalPrice: car.pricePerDay * days,
+    });
+  } else {
+    res.status(400).json({ success: false, message: "Car is not available" });
+  }
 });
 
-const Booking = mongoose.model('Booking', bookingSchema);
-
-// Routes
-app.get('/cars', async (req, res) => {
-    const cars = await Car.find({ available: true });
-    res.json(cars);
-});
-
-app.post('/book', async (req, res) => {
-    const { carId, userId, startDate, endDate } = req.body;
-    const newBooking = new Booking({ carId, userId, startDate, endDate });
-    await newBooking.save();
-    await Car.findByIdAndUpdate(carId, { available: false });
-    res.status(201).send('Car booked successfully');
-});
-
-app.get('/bookings', async (req, res) => {
-    const bookings = await Booking.find().populate('carId');
-    res.json(bookings);
-});
-
-app.listen(port, () => console.log(`Server running on port ${port}`));
+const PORT = 5000;
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
